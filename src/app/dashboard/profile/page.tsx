@@ -7,12 +7,13 @@ import { Avatar, Button, Card, Input } from '@/components/ui'
 import { profileService } from '@/services/supabase'
 import { LogOut, Edit2, Trash2 } from 'lucide-react'
 import Link from 'next/link'
+import { AVATAR_COLORS } from '@/lib/constants'
 
 export default function Profile() {
   const router = useRouter()
   const { currentProfile, setCurrentProfile } = useAppStore()
   const [isEditing, setIsEditing] = useState(false)
-  const [editName, setEditName] = useState(currentProfile?.name || '')
+  const [editName, setEditName] = useState(currentProfile?.first_name || '')
   const [isSaving, setIsSaving] = useState(false)
 
   if (!currentProfile) {
@@ -28,8 +29,8 @@ export default function Profile() {
 
     try {
       setIsSaving(true)
-      await profileService.update(currentProfile.id, { name: editName })
-      setCurrentProfile({ ...currentProfile, name: editName })
+      await profileService.update(currentProfile.id, { first_name: editName })
+      setCurrentProfile({ ...currentProfile, first_name: editName })
       setIsEditing(false)
     } catch (error) {
       console.error('Error updating profile:', error)
@@ -66,8 +67,8 @@ export default function Profile() {
         <div className='flex items-start justify-between gap-8'>
           <div className='flex items-center gap-6'>
             <Avatar
-              initials={currentProfile.avatar_initials}
-              color={currentProfile.avatar_color}
+              initials={currentProfile.first_name.charAt(0).toUpperCase()}
+              color={AVATAR_COLORS[currentProfile.avatar_index % AVATAR_COLORS.length]}
               size='xl'
             />
             <div>
@@ -92,7 +93,7 @@ export default function Profile() {
                     <Button
                       onClick={() => {
                         setIsEditing(false)
-                        setEditName(currentProfile.name)
+                        setEditName(currentProfile.first_name)
                       }}
                       variant='secondary'
                       size='sm'
@@ -104,7 +105,7 @@ export default function Profile() {
                 </div>
               ) : (
                 <div>
-                  <h2 className='text-2xl font-bold'>{currentProfile.name}</h2>
+                  <h2 className='text-2xl font-bold'>{currentProfile.first_name}</h2>
                   <p className='text-muted-foreground mt-1'>
                     Créé le {new Date(currentProfile.created_at).toLocaleDateString('fr-FR')}
                   </p>

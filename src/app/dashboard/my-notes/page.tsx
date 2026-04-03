@@ -63,7 +63,7 @@ export default function MyNotes() {
         (n) =>
           n.title.toLowerCase().includes(query) ||
           n.content.toLowerCase().includes(query) ||
-          (n.subject && n.subject.toLowerCase().includes(query))
+          (n.category && n.category.toLowerCase().includes(query))
       )
     }
 
@@ -150,18 +150,7 @@ export default function MyNotes() {
             <StudyNoteCard
               key={note.id}
               note={note}
-              onView={(n) => router.push(`/dashboard/note/${n.id}`)}
-              onShare={async (n) => {
-                await studyNoteService.changeShareStatus(n.id, !n.is_shared)
-                await loadNotes()
-              }}
-              onDelete={async (n) => {
-                if (confirm('Êtes-vous sûr?')) {
-                  await studyNoteService.delete(n.id)
-                  await loadNotes()
-                }
-              }}
-              isShared={note.is_shared}
+              onUpdate={loadNotes}
             />
           ))}
         </div>

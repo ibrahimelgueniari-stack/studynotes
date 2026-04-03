@@ -26,24 +26,8 @@ export const PREDEFINED_SUBJECTS = [
   'Chimie',
   'Biologie',
   'Informatique',
-  'Philosophie',
-  'Économie',
-  'Droit',
-  'Musique',
-  'Arts',
-  'Géométrie',
-  'Statistiques',
-  'Littérature',
-  'Grammaire',
-  'Vocabulaire',
+  'Autres',
 ]
-
-// Configuration OpenAI
-export const AI_CONFIG = {
-  model: 'gpt-3.5-turbo',
-  temperature: 0.7,
-  maxTokens: 2000,
-}
 
 // Configuration pagination
 export const PAGINATION = {

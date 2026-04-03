@@ -1,16 +1,11 @@
 import { useCallback } from 'react'
-import toast from 'react-hot-toast'
+import { toast } from 'sonner'
 
 export function useToast() {
   const success = useCallback((message: string) => {
     toast.success(message, {
       duration: 3000,
       position: 'bottom-right',
-      style: {
-        background: '#10b981',
-        color: '#fff',
-        borderRadius: '8px',
-      },
     })
   }, [])
 
@@ -18,11 +13,6 @@ export function useToast() {
     toast.error(message, {
       duration: 3000,
       position: 'bottom-right',
-      style: {
-        background: '#ef4444',
-        color: '#fff',
-        borderRadius: '8px',
-      },
     })
   }, [])
 

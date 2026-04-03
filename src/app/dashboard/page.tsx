@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useAppStore } from '@/store/app'
-import { studyNoteService, profileService } from '@/services/supabase'
+import { studyNoteService } from '@/services/supabase'
 import { Button, Spinner, Card } from '@/components/ui'
 import StudyNoteCard from '@/components/sections/StudyNoteCard'
 import { Plus, TrendingUp, Share2 } from 'lucide-react'
@@ -12,7 +12,7 @@ import type { StudyNote } from '@/types'
 
 export default function Dashboard() {
   const router = useRouter()
-  const { currentProfile, setCurrentProfile } = useAppStore()
+  const { currentProfile } = useAppStore()
   const [notes, setNotes] = useState<StudyNote[]>([])
   const [sharedNotes, setSharedNotes] = useState<StudyNote[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -52,7 +52,7 @@ export default function Dashboard() {
   }
 
   const mySharedNotes = notes.filter((n) => n.is_shared)
-  const myPrivateNotes = notes.filter((n) => !n.is_shared)
+  // const myPrivateNotes = notes.filter((n) => !n.is_shared)
 
   return (
     <div className='p-6 md:p-8'>
@@ -60,7 +60,7 @@ export default function Dashboard() {
       <div className='mb-12'>
         <div className='flex items-center justify-between mb-6'>
           <div>
-            <h1 className='text-3xl md:text-4xl font-bold mb-2'>Bienvenue, {currentProfile.name}!</h1>
+            <h1 className='text-3xl md:text-4xl font-bold mb-2'>Bienvenue, {currentProfile.first_name}!</h1>
             <p className='text-muted-foreground'>
               Gérez vos fiches d'étude et découvrez le contenu partagé par vos amis
             </p>
@@ -132,18 +132,7 @@ export default function Dashboard() {
                   <StudyNoteCard
                     key={note.id}
                     note={note}
-                    onView={(n) => router.push(`/note/${n.id}`)}
-                    onShare={async (n) => {
-                      await studyNoteService.changeShareStatus(n.id, !n.is_shared)
-                      await loadData()
-                    }}
-                    onDelete={async (n) => {
-                      if (confirm('Êtes-vous sûr?')) {
-                        await studyNoteService.delete(n.id)
-                        await loadData()
-                      }
-                    }}
-                    isShared={note.is_shared}
+                    onUpdate={loadData}
                   />
                 ))}
               </div>
@@ -168,8 +157,6 @@ export default function Dashboard() {
                   <StudyNoteCard
                     key={note.id}
                     note={note}
-                    onView={(n) => router.push(`/note/${n.id}`)}
-                    isShared={true}
                   />
                 ))}
               </div>

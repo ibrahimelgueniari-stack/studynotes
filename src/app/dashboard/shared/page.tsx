@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAppStore } from '@/store/app'
 import { studyNoteService } from '@/services/supabase'
-import { Button, Spinner, Card } from '@/components/ui'
+import { Spinner, Card } from '@/components/ui'
 import StudyNoteCard from '@/components/sections/StudyNoteCard'
 import { Search, Filter } from 'lucide-react'
 import type { StudyNote } from '@/types'
@@ -39,7 +39,7 @@ export default function SharedNotes() {
       setNotes(data || [])
 
       // Extract unique categories
-      const cats = Array.from(new Set(data?.filter((n) => n.subject).map((n) => n.subject) || []))
+      const cats = Array.from(new Set(data?.filter((n) => n.category).map((n) => n.category) || []))
       setCategories(cats as string[])
     } catch (error) {
       console.error('Error loading notes:', error)
@@ -53,7 +53,7 @@ export default function SharedNotes() {
 
     // Apply category filter
     if (selectedCategory) {
-      filtered = filtered.filter((n) => n.subject === selectedCategory)
+      filtered = filtered.filter((n) => n.category === selectedCategory)
     }
 
     // Apply search filter
@@ -63,7 +63,7 @@ export default function SharedNotes() {
         (n) =>
           n.title.toLowerCase().includes(query) ||
           n.content.toLowerCase().includes(query) ||
-          (n.subject && n.subject.toLowerCase().includes(query))
+          (n.category && n.category.toLowerCase().includes(query))
       )
     }
 
@@ -146,8 +146,6 @@ export default function SharedNotes() {
               <StudyNoteCard
                 key={note.id}
                 note={note}
-                onView={(n) => router.push(`/dashboard/note/${n.id}`)}
-                isShared={true}
               />
             ))}
           </div>

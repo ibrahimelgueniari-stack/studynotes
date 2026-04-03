@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useAppStore } from '@/store/app'
-import { studyNoteService, flashcardService, quizService } from '@/services/supabase'
+import { studyNoteService } from '@/services/supabase'
 import { Button, Card, Spinner } from '@/components/ui'
 import { ArrowLeft, Share2, Lock, Trash2, Copy } from 'lucide-react'
 import type { StudyNote, Flashcard, Quiz } from '@/types'
@@ -34,13 +34,8 @@ export default function NoteDetail() {
       setNote(noteData)
 
       if (noteData) {
-        const [cards, quizData] = await Promise.all([
-          flashcardService.getByNoteId(noteData.id),
-          quizService.getByNoteId(noteData.id),
-        ])
-
-        setFlashcards(cards || [])
-        setQuizzes(quizData || [])
+        setFlashcards(noteData.flashcards || [])
+        setQuizzes(noteData.quizzes || [])
       }
     } catch (error) {
       console.error('Error loading note:', error)
@@ -146,9 +141,9 @@ export default function NoteDetail() {
       <div className='mb-8'>
         <h1 className='text-3xl md:text-4xl font-bold mb-4'>{note.title}</h1>
         <div className='flex flex-wrap gap-4'>
-          {note.subject && (
+          {note.category && (
             <div className='badge'>
-              📚 {note.subject}
+              📚 {note.category}
             </div>
           )}
           <div className='badge'>
@@ -206,8 +201,8 @@ export default function NoteDetail() {
                   </p>
                   <p className='text-2xl font-semibold text-foreground'>
                     {isFlipped[currentFlashcardIndex]
-                      ? flashcards[currentFlashcardIndex].answer
-                      : flashcards[currentFlashcardIndex].question}
+                      ? flashcards[currentFlashcardIndex].back
+                      : flashcards[currentFlashcardIndex].front}
                   </p>
                   <p className='text-xs text-muted-foreground mt-4'>Cliquez pour retourner</p>
                 </div>

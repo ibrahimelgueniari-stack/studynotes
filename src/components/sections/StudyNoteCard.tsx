@@ -2,40 +2,23 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabaseService } from '@/services/supabase';
 import { useToast } from '@/hooks/useToast';
 import { Card } from '@/components/ui';
-import { Share2, Lock, Trash2, Eye } from 'lucide-react';
+import { Share2, Lock, Trash2 } from 'lucide-react';
 import type { StudyNote } from '@/types';
-
-const AVATAR_COLORS = [
-  'from-red-600 to-red-400',
-  'from-blue-600 to-blue-400',
-  'from-purple-600 to-purple-400',
-  'from-pink-600 to-pink-400',
-  'from-green-600 to-green-400',
-  'from-yellow-600 to-yellow-400',
-  'from-indigo-600 to-indigo-400',
-  'from-orange-600 to-orange-400',
-  'from-cyan-600 to-cyan-400',
-  'from-emerald-600 to-emerald-400',
-];
 
 interface StudyNoteCardProps {
   note: StudyNote;
-  colorIndex?: number;
   onUpdate?: () => void;
 }
 
-const StudyNoteCard: React.FC<StudyNoteCardProps> = ({ note, colorIndex = 0, onUpdate }) => {
-  const router = useRouter();
+const StudyNoteCard: React.FC<StudyNoteCardProps> = ({ note, onUpdate }) => {
   const { currentProfile } = useAuth();
-  const { toast } = useToast();
+  const { success, error } = useToast();
 
   const isOwner = currentProfile?.id === note.profile_id;
-  const color = AVATAR_COLORS[colorIndex];
 
   const handleToggleShare = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -43,17 +26,11 @@ const StudyNoteCard: React.FC<StudyNoteCardProps> = ({ note, colorIndex = 0, onU
 
     try {
       await supabaseService.toggleShareNote(note.id, !note.is_shared);
-      toast({
-        type: 'success',
-        message: note.is_shared ? 'Fiche rendue privée' : 'Fiche partagée',
-      });
+      success(note.is_shared ? 'Fiche rendue privée' : 'Fiche partagée');
       onUpdate?.();
-    } catch (error) {
-      console.error('Error toggling share:', error);
-      toast({
-        type: 'error',
-        message: 'Erreur lors du partage',
-      });
+    } catch (err) {
+      console.error('Error toggling share:', err);
+      error('Erreur lors du partage');
     }
   };
 
@@ -65,17 +42,11 @@ const StudyNoteCard: React.FC<StudyNoteCardProps> = ({ note, colorIndex = 0, onU
 
     try {
       await supabaseService.deleteNote(note.id);
-      toast({
-        type: 'success',
-        message: 'Fiche supprimée',
-      });
+      success('Fiche supprimée');
       onUpdate?.();
-    } catch (error) {
-      console.error('Error deleting note:', error);
-      toast({
-        type: 'error',
-        message: 'Erreur lors de la suppression',
-      });
+    } catch (err) {
+      console.error('Error deleting note:', err);
+      error('Erreur lors de la suppression');
     }
   };
 

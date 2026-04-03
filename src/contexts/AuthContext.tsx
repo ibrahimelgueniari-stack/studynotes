@@ -7,14 +7,13 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [currentProfile, setCurrentProfile] = useState<Profile | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
 
   return (
     <AuthContext.Provider
       value={{
         currentProfile,
         setCurrentProfile,
-        isLoading,
+        isLoading: false,
       }}
     >
       {children}

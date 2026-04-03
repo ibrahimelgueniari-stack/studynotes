@@ -71,6 +71,31 @@ export const supabaseService = {
     return data;
   },
 
+  async deleteProfile(id: string): Promise<void> {
+    // Delete all notes and related data for this profile
+    const { data: notes } = await supabase
+      .from('study_notes')
+      .select('id')
+      .eq('profile_id', id);
+
+    if (notes) {
+      for (const note of notes) {
+        await supabase.from('flashcards').delete().eq('study_note_id', note.id);
+        await supabase.from('quizzes').delete().eq('study_note_id', note.id);
+        await supabase.from('uploaded_images').delete().eq('study_note_id', note.id);
+      }
+      await supabase.from('study_notes').delete().eq('profile_id', id);
+    }
+
+    // Delete the profile
+    const { error } = await supabase
+      .from('profiles')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+  },
+
   // ====== STUDY NOTES ======
   async getUserNotes(profileId: string): Promise<StudyNote[]> {
     const { data, error } = await supabase
@@ -361,4 +386,35 @@ export const supabaseService = {
     // Delete record from database
     await supabase.from('uploaded_images').delete().eq('image_url', imageUrl);
   },
+};
+
+// Export named services for backward compatibility
+export const profileService = {
+  getAll: supabaseService.getAllProfiles,
+  get: supabaseService.getProfile,
+  create: supabaseService.createProfile,
+  update: supabaseService.updateProfile,
+  delete: supabaseService.deleteProfile,
+};
+
+export const studyNoteService = {
+  getByProfileId: supabaseService.getUserNotes,
+  getAll: supabaseService.getSharedNotes,
+  getById: supabaseService.getNoteWithRelations,
+  create: supabaseService.createNote,
+  update: supabaseService.updateNote,
+  delete: supabaseService.deleteNote,
+  changeShareStatus: supabaseService.toggleShareNote,
+};
+
+export const flashcardService = {
+  create: supabaseService.createFlashcard,
+  update: supabaseService.updateFlashcard,
+  delete: supabaseService.deleteFlashcard,
+};
+
+export const quizService = {
+  create: supabaseService.createQuiz,
+  update: supabaseService.updateQuiz,
+  delete: supabaseService.deleteQuiz,
 };

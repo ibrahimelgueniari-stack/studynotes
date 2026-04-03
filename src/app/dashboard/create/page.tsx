@@ -1,356 +1,338 @@
 'use client'
 
-import React, { useState, useRef } from 'react'
+import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAppStore } from '@/store/app'
-import { studyNoteService, flashcardService, quizService } from '@/services/supabase'
-import { aiService } from '@/services/ai'
-import { Button, Input, Modal, Spinner, Card } from '@/components/ui'
-import { Upload, Send, FileText, Image as ImageIcon } from 'lucide-react'
-import type { StudyNote, Flashcard, Quiz } from '@/types'
+import { supabaseService } from '@/services/supabase'
+import { Button, Input, Card } from '@/components/ui'
+import { Plus, Trash2 } from 'lucide-react'
 
-interface GeneratedContent {
-  summary: string
-  flashcards: Array<{ question: string; answer: string }>
-  quiz: Array<{ question: string; options: string[]; correctAnswer: number }>
-  keywords: string[]
-}
+const CATEGORIES = [
+  'Mathématiques',
+  'Français',
+  'Histoire',
+  'Géographie',
+  'Anglais',
+  'Sciences',
+  'Biologie',
+  'Physique',
+  'Chimie',
+  'Informatique',
+  'Autres',
+]
 
 export default function CreateNote() {
   const router = useRouter()
   const { currentProfile } = useAppStore()
 
-  // Input states
-  const [inputType, setInputType] = useState<'text' | 'image'>('text')
-  const [textInput, setTextInput] = useState('')
-  const [uploadedImages, setUploadedImages] = useState<File[]>([])
-  const fileInputRef = useRef<HTMLInputElement>(null)
-
-  // Processing states
-  const [isAnalyzing, setIsAnalyzing] = useState(false)
-  const [generatedContent, setGeneratedContent] = useState<GeneratedContent | null>(null)
-  const [noteTitle, setNoteTitle] = useState('')
-  const [noteSubject, setNoteSubject] = useState('')
+  const [title, setTitle] = useState('')
+  const [category, setCategory] = useState(CATEGORIES[0])
+  const [content, setContent] = useState('')
+  const [activeTab, setActiveTab] = useState<'content' | 'flashcards' | 'quizzes'>('content')
+  const [flashcards, setFlashcards] = useState<any[]>([])
+  const [newFlashcardFront, setNewFlashcardFront] = useState('')
+  const [newFlashcardBack, setNewFlashcardBack] = useState('')
+  const [quizzes, setQuizzes] = useState<any[]>([])
+  const [newQuizQuestion, setNewQuizQuestion] = useState('')
+  const [newQuizOptions, setNewQuizOptions] = useState(['', '', '', ''])
+  const [newQuizCorrect, setNewQuizCorrect] = useState(0)
   const [isSaving, setIsSaving] = useState(false)
 
   if (!currentProfile) {
-    return (
-      <div className='p-6 md:p-8'>
-        <p>Please select a profile first</p>
-      </div>
-    )
+    return <div className="p-6">Veuillez sélectionner un profil</div>
   }
 
-  const handleTextSubmit = async () => {
-    if (!textInput.trim()) return
-
-    try {
-      setIsAnalyzing(true)
-      const response = await fetch('/api/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: textInput }),
-      })
-
-      const data = await response.json()
-      
-      if (!response.ok) throw new Error(data.error || 'Analysis failed')
-
-      setGeneratedContent(data)
-      
-      // Generate title if not provided
-      if (!noteTitle) {
-        const title = await aiService.generateTitle(textInput)
-        setNoteTitle(title)
-      }
-    } catch (error) {
-      console.error('Error analyzing content:', error)
-      alert('Erreur lors de l\'analyse du contenu')
-    } finally {
-      setIsAnalyzing(false)
+  const addFlashcard = () => {
+    if (!newFlashcardFront.trim() || !newFlashcardBack.trim()) {
+      alert('Remplissez les deux champs')
+      return
     }
+    setFlashcards([
+      ...flashcards,
+      {
+        id: Date.now().toString(),
+        study_note_id: '',
+        front: newFlashcardFront,
+        back: newFlashcardBack,
+        order_index: flashcards.length,
+        created_at: new Date().toISOString(),
+      },
+    ])
+    setNewFlashcardFront('')
+    setNewFlashcardBack('')
   }
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || [])
-    setUploadedImages([...uploadedImages, ...files])
+  const deleteFlashcard = (index: number) => {
+    setFlashcards(flashcards.filter((_, i) => i !== index))
   }
 
-  const handleRemoveImage = (index: number) => {
-    setUploadedImages(uploadedImages.filter((_, i) => i !== index))
-  }
-
-  const handleProcessImages = async () => {
-    if (uploadedImages.length === 0) return
-
-    try {
-      setIsAnalyzing(true)
-      let combinedText = ''
-
-      // In a real app, you would upload images to Supabase Storage and extract text
-      // For now, we'll just use placeholder text
-      combinedText = `[Images uploadées: ${uploadedImages.length} fichier(s)]\n\nTexte extrait (configuration OCR requise)`
-
-      setTextInput(combinedText)
-      await handleTextSubmit()
-    } catch (error) {
-      console.error('Error processing images:', error)
-      alert('Erreur lors du traitement des images')
-    } finally {
-      setIsAnalyzing(false)
+  const addQuiz = () => {
+    if (
+      !newQuizQuestion.trim() ||
+      newQuizOptions.some((o) => !o.trim()) ||
+      newQuizCorrect < 0 ||
+      newQuizCorrect > 3
+    ) {
+      alert('Remplissez tous les champs')
+      return
     }
+    setQuizzes([
+      ...quizzes,
+      {
+        id: Date.now().toString(),
+        study_note_id: '',
+        question: newQuizQuestion,
+        options: newQuizOptions,
+        correct_answer: newQuizCorrect,
+        created_at: new Date().toISOString(),
+      },
+    ])
+    setNewQuizQuestion('')
+    setNewQuizOptions(['', '', '', ''])
+    setNewQuizCorrect(0)
   }
 
-  const handleSaveNote = async () => {
-    if (!noteTitle.trim()) {
-      alert('Veuillez entrer un titre')
+  const deleteQuiz = (index: number) => {
+    setQuizzes(quizzes.filter((_, i) => i !== index))
+  }
+
+  const handleSave = async () => {
+    if (!title.trim() || !content.trim()) {
+      alert('Le titre et le contenu sont obligatoires')
       return
     }
 
     try {
       setIsSaving(true)
 
-      // Create the main study note
-      const note = await studyNoteService.create(
-        currentProfile.id,
-        noteTitle,
-        textInput,
-        noteSubject
-      )
+      const note = await supabaseService.createNote({
+        profileId: currentProfile.id,
+        title,
+        content,
+        category,
+        flashcards: flashcards.map((f) => ({
+          front: f.front,
+          back: f.back,
+        })),
+        quizzes: quizzes.map((q) => ({
+          question: q.question,
+          options: q.options,
+          correctAnswer: q.correct_answer,
+        })),
+      })
 
-      // Save generated flashcards
-      if (generatedContent?.flashcards) {
-        for (const card of generatedContent.flashcards) {
-          await flashcardService.create(note.id, card.question, card.answer)
-        }
-      }
-
-      // Save generated quiz questions
-      if (generatedContent?.quiz) {
-        for (const q of generatedContent.quiz) {
-          await quizService.create(
-            note.id,
-            q.question,
-            q.options,
-            q.correctAnswer
-          )
-        }
-      }
-
-      // Update note with summary and keywords
-      if (generatedContent) {
-        await studyNoteService.update(note.id, {
-          summary: generatedContent.summary,
-        })
-      }
-
-      // Reset form
-      setTextInput('')
-      setNoteTitle('')
-      setNoteSubject('')
-      setGeneratedContent(null)
-      setUploadedImages([])
-
-      router.push(`/note/${note.id}`)
+      router.push(`/dashboard/notes/${note.id}`)
     } catch (error) {
-      console.error('Error saving note:', error)
-      alert('Erreur lors de la sauvegarde')
+      console.error('Error:', error)
+      alert('Erreur')
     } finally {
       setIsSaving(false)
     }
   }
 
   return (
-    <div className='p-6 md:p-8 max-w-4xl mx-auto'>
-      <h1 className='text-3xl md:text-4xl font-bold mb-8'>Créer une fiche d\'étude</h1>
+    <div className="p-6 md:p-8 max-w-4xl mx-auto">
+      <h1 className="text-3xl md:text-4xl font-bold mb-8">Nouvelle Fiche</h1>
 
-      {!generatedContent ? (
-        <div className='space-y-8'>
-          {/* Input Type Selection */}
-          <div className='flex gap-4'>
-            <button
-              onClick={() => setInputType('text')}
-              className={`flex-1 p-6 rounded-lg border-2 transition-all ${
-                inputType === 'text'
-                  ? 'border-primary bg-primary/10'
-                  : 'border-border hover:border-primary'
-              }`}
-            >
-              <FileText className='w-8 h-8 mx-auto mb-2' />
-              <p className='font-medium'>Texte</p>
-              <p className='text-sm text-muted-foreground'>Collez vos notes</p>
-            </button>
+      <div className="flex gap-2 mb-8 border-b border-slate-700">
+        {(['content', 'flashcards', 'quizzes'] as const).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`px-4 py-2 font-medium border-b-2 transition-colors ${
+              activeTab === tab
+                ? 'border-blue-600 text-blue-400'
+                : 'border-transparent text-slate-400 hover:text-slate-300'
+            }`}
+          >
+            {tab === 'content' && 'Contenu'}
+            {tab === 'flashcards' && `Flashcards (${flashcards.length})`}
+            {tab === 'quizzes' && `Quizzes (${quizzes.length})`}
+          </button>
+        ))}
+      </div>
 
-            <button
-              onClick={() => setInputType('image')}
-              className={`flex-1 p-6 rounded-lg border-2 transition-all ${
-                inputType === 'image'
-                  ? 'border-primary bg-primary/10'
-                  : 'border-border hover:border-primary'
-              }`}
+      {activeTab === 'content' && (
+        <div className="space-y-6">
+          <Input
+            label="Titre"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Entrez le titre"
+          />
+
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">Catégorie</label>
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className="w-full px-4 py-2 rounded-lg bg-slate-800 border border-slate-600 text-white focus:outline-none focus:border-blue-600"
             >
-              <ImageIcon className='w-8 h-8 mx-auto mb-2' />
-              <p className='font-medium'>Images</p>
-              <p className='text-sm text-muted-foreground'>Téléchargez des documents</p>
-            </button>
+              {CATEGORIES.map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat}
+                </option>
+              ))}
+            </select>
           </div>
 
-          {/* Text Input */}
-          {inputType === 'text' && (
-            <div className='space-y-4'>
-              <label className='block text-sm font-medium'>Contenu à analyser</label>
-              <textarea
-                value={textInput}
-                onChange={(e) => setTextInput(e.target.value)}
-                placeholder='Collez le texte que vous voulez transformer en fiche d\'étude...'
-                className='w-full h-64 p-4 rounded-lg bg-surface border border-border text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary'
-              />
-              <Button
-                onClick={handleTextSubmit}
-                variant='primary'
-                size='lg'
-                isLoading={isAnalyzing}
-                disabled={!textInput.trim() || isAnalyzing}
-                className='w-full gap-2'
-              >
-                <Send size={20} />
-                Analyser le contenu
-              </Button>
-            </div>
-          )}
-
-          {/* Image Upload */}
-          {inputType === 'image' && (
-            <div className='space-y-4'>
-              <div
-                onClick={() => fileInputRef.current?.click()}
-                className='border-2 border-dashed border-border rounded-lg p-12 text-center cursor-pointer hover:border-primary transition-colors'
-              >
-                <input
-                  ref={fileInputRef}
-                  type='file'
-                  multiple
-                  accept='image/*'
-                  onChange={handleImageUpload}
-                  className='hidden'
-                />
-                <Upload className='w-12 h-12 mx-auto mb-4 text-muted-foreground' />
-                <p className='font-medium mb-2'>Cliquez pour télécharger des images</p>
-                <p className='text-sm text-muted-foreground'>ou glissez-déposez vos fichiers</p>
-              </div>
-
-              {uploadedImages.length > 0 && (
-                <div className='space-y-2'>
-                  <p className='font-medium'>{uploadedImages.length} fichier(s) sélectionné(s):</p>
-                  <div className='space-y-2'>
-                    {uploadedImages.map((file, index) => (
-                      <div
-                        key={index}
-                        className='flex items-center justify-between p-3 bg-surface rounded-lg'
-                      >
-                        <span className='text-sm'>{file.name}</span>
-                        <button
-                          onClick={() => handleRemoveImage(index)}
-                          className='text-error hover:bg-error/10 px-3 py-1 rounded'
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <Button
-                onClick={handleProcessImages}
-                variant='primary'
-                size='lg'
-                isLoading={isAnalyzing}
-                disabled={uploadedImages.length === 0 || isAnalyzing}
-                className='w-full gap-2'
-              >
-                <ImageIcon size={20} />
-                Traiter les images
-              </Button>
-            </div>
-          )}
-        </div>
-      ) : (
-        // Generated Content Display
-        <div className='space-y-8'>
-          {/* Note Details */}
-          <div className='space-y-4'>
-            <Input
-              label='Titre de la fiche'
-              value={noteTitle}
-              onChange={(e) => setNoteTitle(e.target.value)}
-              placeholder='Titre de votre fiche'
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">Contenu</label>
+            <textarea
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              placeholder="Entrez le contenu"
+              className="w-full h-64 px-4 py-2 rounded-lg bg-slate-800 border border-slate-600 text-white placeholder-slate-400 focus:outline-none focus:border-blue-600"
             />
-            <Input
-              label='Matière (optionnel)'
-              value={noteSubject}
-              onChange={(e) => setNoteSubject(e.target.value)}
-              placeholder='Ex: Mathématiques, Histoire, etc.'
-            />
-          </div>
-
-          {/* Generated Content Preview */}
-          <Card className='p-6'>
-            <h3 className='text-xl font-bold mb-4'>Résumé généré</h3>
-            <p className='text-foreground text-lg'>{generatedContent.summary}</p>
-          </Card>
-
-          {generatedContent.flashcards.length > 0 && (
-            <Card className='p-6'>
-              <h3 className='text-xl font-bold mb-4'>Flashcards ({generatedContent.flashcards.length})</h3>
-              <div className='space-y-3'>
-                {generatedContent.flashcards.map((card, index) => (
-                  <div key={index} className='p-4 bg-surface rounded-lg'>
-                    <p className='text-sm font-medium text-accent mb-2'>Q: {card.question}</p>
-                    <p className='text-sm text-foreground'>R: {card.answer}</p>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          )}
-
-          {generatedContent.keywords.length > 0 && (
-            <Card className='p-6'>
-              <h3 className='text-xl font-bold mb-4'>Mots-clés</h3>
-              <div className='flex flex-wrap gap-2'>
-                {generatedContent.keywords.map((keyword, index) => (
-                  <span key={index} className='badge'>
-                    {keyword}
-                  </span>
-                ))}
-              </div>
-            </Card>
-          )}
-
-          {/* Action Buttons */}
-          <div className='flex gap-4'>
-            <Button
-              onClick={() => setGeneratedContent(null)}
-              variant='secondary'
-              size='lg'
-              className='flex-1'
-              disabled={isSaving}
-            >
-              Modifier
-            </Button>
-            <Button
-              onClick={handleSaveNote}
-              variant='primary'
-              size='lg'
-              className='flex-1'
-              isLoading={isSaving}
-              disabled={!noteTitle.trim() || isSaving}
-            >
-              Enregistrer la fiche
-            </Button>
           </div>
         </div>
       )}
+
+      {activeTab === 'flashcards' && (
+        <div className="space-y-6">
+          <div className="space-y-4">
+            <h3 className="font-bold text-lg">Ajouter Flashcard</h3>
+            <Input
+              label="Question"
+              value={newFlashcardFront}
+              onChange={(e) => setNewFlashcardFront(e.target.value)}
+              placeholder="Question"
+            />
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Réponse</label>
+              <textarea
+                value={newFlashcardBack}
+                onChange={(e) => setNewFlashcardBack(e.target.value)}
+                placeholder="Réponse"
+                className="w-full h-32 px-4 py-2 rounded-lg bg-slate-800 border border-slate-600 text-white placeholder-slate-400 focus:outline-none focus:border-blue-600"
+              />
+            </div>
+            <Button onClick={addFlashcard} variant="primary" size="lg" className="w-full gap-2">
+              <Plus size={20} />
+              Ajouter
+            </Button>
+          </div>
+
+          {flashcards.length > 0 && (
+            <div className="space-y-3">
+              <h4 className="font-semibold text-slate-300">Flashcards:</h4>
+              {flashcards.map((card, index) => (
+                <Card key={index} className="p-4 flex justify-between items-start gap-4">
+                  <div className="flex-1">
+                    <p className="font-medium text-sm text-slate-400">Q: {card.front}</p>
+                    <p className="text-slate-300 mt-2">R: {card.back}</p>
+                  </div>
+                  <button
+                    onClick={() => deleteFlashcard(index)}
+                    className="text-red-400 hover:text-red-300"
+                  >
+                    <Trash2 size={20} />
+                  </button>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'quizzes' && (
+        <div className="space-y-6">
+          <div className="space-y-4">
+            <h3 className="font-bold text-lg">Ajouter Quiz</h3>
+            <Input
+              label="Question"
+              value={newQuizQuestion}
+              onChange={(e) => setNewQuizQuestion(e.target.value)}
+              placeholder="Question"
+            />
+
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Options</label>
+              {newQuizOptions.map((option, index) => (
+                <input
+                  key={index}
+                  type="text"
+                  value={option}
+                  onChange={(e) => {
+                    const newOptions = [...newQuizOptions]
+                    newOptions[index] = e.target.value
+                    setNewQuizOptions(newOptions)
+                  }}
+                  placeholder={`Option ${index + 1}`}
+                  className="w-full px-4 py-2 mb-2 rounded-lg bg-slate-800 border border-slate-600 text-white placeholder-slate-400 focus:outline-none focus:border-blue-600"
+                />
+              ))}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Bonne réponse (0-3)
+              </label>
+              <select
+                value={newQuizCorrect}
+                onChange={(e) => setNewQuizCorrect(parseInt(e.target.value))}
+                className="w-full px-4 py-2 rounded-lg bg-slate-800 border border-slate-600 text-white focus:outline-none focus:border-blue-600"
+              >
+                {[0, 1, 2, 3].map((n) => (
+                  <option key={n} value={n}>
+                    Option {n + 1}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <Button onClick={addQuiz} variant="primary" size="lg" className="w-full gap-2">
+              <Plus size={20} />
+              Ajouter
+            </Button>
+          </div>
+
+          {quizzes.length > 0 && (
+            <div className="space-y-3">
+              <h4 className="font-semibold text-slate-300">Quizzes:</h4>
+              {quizzes.map((quiz, index) => (
+                <Card key={index} className="p-4 flex justify-between items-start gap-4">
+                  <div className="flex-1">
+                    <p className="font-medium text-sm text-slate-400">{quiz.question}</p>
+                    <div className="space-y-1 mt-2 text-sm">
+                      {quiz.options.map((opt: any, i: number) => (
+                        <p
+                          key={i}
+                          className={i === quiz.correct_answer ? 'text-green-400' : 'text-slate-400'}
+                        >
+                          {i + 1}. {opt} {i === quiz.correct_answer && '✓'}
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => deleteQuiz(index)}
+                    className="text-red-400 hover:text-red-300"
+                  >
+                    <Trash2 size={20} />
+                  </button>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="mt-8 flex gap-4">
+        <Button onClick={() => router.back()} variant="ghost" size="lg" className="flex-1">
+          Annuler
+        </Button>
+        <Button
+          onClick={handleSave}
+          variant="primary"
+          size="lg"
+          isLoading={isSaving}
+          disabled={!title.trim() || !content.trim() || isSaving}
+          className="flex-1"
+        >
+          Créer
+        </Button>
+      </div>
     </div>
   )
 }
